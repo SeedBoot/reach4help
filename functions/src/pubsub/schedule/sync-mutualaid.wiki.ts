@@ -78,6 +78,11 @@ const beginningStats = () => ({
    * encountered invalid data that we were unable to handle
    */
   invalid: 0,
+  /**
+   * Encountered multiple markers with the same source id,
+   * and deleted them.
+   */
+  duplicatesRemoved: 0,
 });
 
 type GroupHandleResponse = keyof ReturnType<typeof beginningStats>;
@@ -177,7 +182,14 @@ export const syncMutualAidWiki = functions
     for (const doc of existingMarkers.docs) {
       const id = doc.data().source?.id;
       if (id) {
-        existing.set(id, doc);
+        const duplicate = existing.get(id);
+        if (duplicate) {
+          // eslint-disable-next-line no-await-in-loop
+          await MARKER_COLLECTION.doc(doc.id).delete();
+          stats.duplicatesRemoved++;
+        } else {
+          existing.set(id, doc);
+        }
       }
     }
     const groups: MutualAidWikiGroup[] = await (await fetch(API_URL)).json();
